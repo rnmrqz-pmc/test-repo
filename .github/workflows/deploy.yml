@@ -20,8 +20,8 @@ jobs:
           node-version: '20'  # Updated to Node 20
           cache: 'npm'
 
-      # - name: Install dependencies
-      #   run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
       - name: Build for Staging
         if: github.ref == 'refs/heads/develop'
@@ -35,7 +35,10 @@ jobs:
         run: npm run build
         env:
           NODE_ENV: production
-          # VITE_API_URL: https://api.yourdomain.com
+          VITE_BASE_API: /tms-api
+          VITE_SECRET_KEY: 3ad78f77d8587bd7db20d1a59810281575f7c5962bee331f1e823c3653c6869a
+          VITE_TARGET_PATH: /var/www/html/app
+          VITE_BASE_PATH: /app/
 
 
       - name: Verify build output
