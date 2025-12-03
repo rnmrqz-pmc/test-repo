@@ -62,12 +62,8 @@ jobs:
 
       - name: Deploy to Server
         run: |
-          # Since runner is in VPN, we can directly copy files
-          rsync -avz --delete dist/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ steps.set-path.outputs.DEPLOY_PATH }}/
-      
-      - name: Set correct permissions
-        run: |
-          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "sudo chown -R www-data:www-data ${{ steps.set-path.outputs.DEPLOY_PATH }} && sudo chmod -R 755 ${{ steps.set-path.outputs.DEPLOY_PATH }}"
+          # Deploy files with rsync (preserves permissions)
+          rsync -avz --delete --chmod=D755,F644 dist/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ steps.set-path.outputs.DEPLOY_PATH }}/
 
       - name: Deployment notification
         run: |
