@@ -1,0 +1,47 @@
+{
+  "name": "my-vuetify-app",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "update": "git pull && vite build",
+    "deploy": "npm run update && bash ./bash_deploy.sh",
+    "deploy:notes": "npm run update && bash ./bash_deploy_with_notes.sh",
+    "rollback": "bash ./bash_rollback.sh"
+  },
+  "dependencies": {
+    "@fullcalendar/core": "^6.1.19",
+    "@fullcalendar/daygrid": "^6.1.19",
+    "@fullcalendar/interaction": "^6.1.19",
+    "@fullcalendar/rrule": "^6.1.19",
+    "@fullcalendar/timegrid": "^6.1.19",
+    "@fullcalendar/vue3": "^6.1.19",
+    "@mdi/font": "^7.4.47",
+    "@vueuse/core": "^13.9.0",
+    "axios": "^1.11.0",
+    "bcryptjs": "^3.0.2",
+    "chart.js": "^4.5.0",
+    "crypto-js": "^4.2.0",
+    "pinia": "^3.0.3",
+    "sass": "^1.90.0",
+    "sass-loader": "^13.3.3",
+    "uuid": "^13.0.0",
+    "vue": "^3.5.18",
+    "vue-chartjs": "^5.3.2",
+    "vue-gtag-next": "^1.14.0",
+    "vue-router": "^4.5.1",
+    "vue3-google-login": "^2.0.34",
+    "vuetify": "^3.9.5"
+  },
+  "devDependencies": {
+    "@types/crypto-js": "^4.2.2",
+    "@vitejs/plugin-vue": "^6.0.1",
+    "@vue/tsconfig": "^0.7.0",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.0",
+    "vue-tsc": "^3.0.5"
+  }
+}
