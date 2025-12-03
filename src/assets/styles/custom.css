@@ -1,0 +1,76 @@
+/* === Base (xs / mobile-first) === */
+.pa-0 { padding: 0 !important; }
+.pa-1 { padding: 4px !important; }
+.pa-2 { padding: 8px !important; }
+.pa-3 { padding: 12px !important; }
+.pa-4 { padding: 16px !important; }
+
+.pt-1 { padding-top: 4px !important; }
+.pb-1 { padding-bottom: 4px !important; }
+.ps-1 { padding-inline-start: 4px !important; }
+.pe-1 { padding-inline-end: 4px !important; }
+
+.ma-1 { margin: 4px !important; }
+.mt-1 { margin-top: 4px !important; }
+.mb-1 { margin-bottom: 4px !important; }
+.ms-1 { margin-inline-start: 4px !important; }
+.me-1 { margin-inline-end: 4px !important; }
+
+/* You can continue for 2,3,4,... same pattern */
+
+/* === Small screens (≥600px) === */
+@media (min-width: 600px) {
+  .sm-pa-1 { padding: 4px !important; }
+  .sm-pa-2 { padding: 8px !important; }
+  .sm-pa-3 { padding: 12px !important; }
+  .sm-pa-4 { padding: 16px !important; }
+
+  .sm-pt-1 { padding-top: 4px !important; }
+  .sm-pb-1 { padding-bottom: 4px !important; }
+  .sm-ps-1 { padding-inline-start: 4px !important; }
+  .sm-pe-1 { padding-inline-end: 4px !important; }
+
+  .sm-ma-1 { margin: 4px !important; }
+  .sm-mt-1 { margin-top: 4px !important; }
+  .sm-mb-1 { margin-bottom: 4px !important; }
+  .sm-ms-1 { margin-inline-start: 4px !important; }
+  .sm-me-1 { margin-inline-end: 4px !important; }
+}
+
+/* === Medium screens (≥960px) === */
+@media (min-width: 960px) {
+  .md-pa-1 { padding: 4px !important; }
+  .md-pa-2 { padding: 8px !important; }
+  .md-pa-3 { padding: 12px !important; }
+  .md-pa-4 { padding: 16px !important; }
+
+  .md-pt-1 { padding-top: 4px !important; }
+  .md-pb-1 { padding-bottom: 4px !important; }
+  .md-ps-1 { padding-inline-start: 4px !important; }
+  .md-pe-1 { padding-inline-end: 4px !important; }
+
+  .md-ma-1 { margin: 4px !important; }
+  .md-mt-1 { margin-top: 4px !important; }
+  .md-mb-1 { margin-bottom: 4px !important; }
+  .md-ms-1 { margin-inline-start: 4px !important; }
+  .md-me-1 { margin-inline-end: 4px !important; }
+}
+
+/* === Large screens (≥1280px) === */
+@media (min-width: 1280px) {
+  .lg-pa-1 { padding: 4px !important; }
+  .lg-pa-2 { padding: 8px !important; }
+  .lg-pa-3 { padding: 12px !important; }
+  .lg-pa-4 { padding: 16px !important; }
+
+  .lg-pt-1 { padding-top: 4px !important; }
+  .lg-pb-1 { padding-bottom: 4px !important; }
+  .lg-ps-1 { padding-inline-start: 4px !important; }
+  .lg-pe-1 { padding-inline-end: 4px !important; }
+
+  .lg-ma-1 { margin: 4px !important; }
+  .lg-mt-1 { margin-top: 4px !important; }
+  .lg-mb-1 { margin-bottom: 4px !important; }
+  .lg-ms-1 { margin-inline-start: 4px !important; }
+  .lg-me-1 { margin-inline-end: 4px !important; }
+}
