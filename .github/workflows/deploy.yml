@@ -8,7 +8,7 @@ on:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted  # Use your self-hosted runner
     
     steps:
       - name: Checkout code
@@ -61,25 +61,13 @@ jobs:
           fi
 
       - name: Deploy to Server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "dist/*"
-          target: ${{ steps.set-path.outputs.DEPLOY_PATH }}
-          strip_components: 1
-          overwrite: true
-
+        run: |
+          # Since runner is in VPN, we can directly copy files
+          rsync -avz --delete dist/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ steps.set-path.outputs.DEPLOY_PATH }}/
+      
       - name: Set correct permissions
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            sudo chown -R www-data:www-data ${{ steps.set-path.outputs.DEPLOY_PATH }}
-            sudo chmod -R 755 ${{ steps.set-path.outputs.DEPLOY_PATH }}
+        run: |
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "sudo chown -R www-data:www-data ${{ steps.set-path.outputs.DEPLOY_PATH }} && sudo chmod -R 755 ${{ steps.set-path.outputs.DEPLOY_PATH }}"
 
       - name: Deployment notification
         run: |
