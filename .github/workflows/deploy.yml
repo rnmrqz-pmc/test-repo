@@ -1,0 +1,74 @@
+name: Deploy to Server
+
+on:
+  push:
+    branches:
+      - main        # Production
+      - develop     # Staging
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build for Staging
+        if: github.ref == 'refs/heads/develop'
+        run: npm run build
+        env:
+          NODE_ENV: staging
+          VITE_API_URL: https://staging-api.yourdomain.com
+
+      - name: Build for Production
+        if: github.ref == 'refs/heads/main'
+        run: npm run build
+        env:
+          NODE_ENV: production
+          VITE_API_URL: https://api.yourdomain.com
+
+      - name: Set deployment path
+        id: set-path
+        run: |
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "DEPLOY_PATH=${{ secrets.PRODUCTION_PATH }}" >> $GITHUB_OUTPUT
+            echo "ENVIRONMENT=production" >> $GITHUB_OUTPUT
+          else
+            echo "DEPLOY_PATH=${{ secrets.STAGING_PATH }}" >> $GITHUB_OUTPUT
+            echo "ENVIRONMENT=staging" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Deploy to Server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "dist/*"
+          target: ${{ steps.set-path.outputs.DEPLOY_PATH }}
+          strip_components: 1
+          overwrite: true
+
+      - name: Set correct permissions
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            sudo chown -R www-data:www-data ${{ steps.set-path.outputs.DEPLOY_PATH }}
+            sudo chmod -R 755 ${{ steps.set-path.outputs.DEPLOY_PATH }}
+
+      - name: Deployment notification
+        run: |
+          echo "Deployed to ${{ steps.set-path.outputs.ENVIRONMENT }} successfully!"
