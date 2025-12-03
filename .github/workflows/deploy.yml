@@ -12,12 +12,12 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'  # Updated to Node 20
           cache: 'npm'
 
       - name: Install dependencies
@@ -36,6 +36,18 @@ jobs:
         env:
           NODE_ENV: production
           VITE_API_URL: https://api.yourdomain.com
+
+      - name: Verify build output
+        run: |
+          echo "Checking if dist folder exists..."
+          ls -la
+          if [ -d "dist" ]; then
+            echo "dist folder found:"
+            ls -la dist/
+          else
+            echo "Error: dist folder not found!"
+            exit 1
+          fi
 
       - name: Set deployment path
         id: set-path
@@ -71,4 +83,6 @@ jobs:
 
       - name: Deployment notification
         run: |
-          echo "Deployed to ${{ steps.set-path.outputs.ENVIRONMENT }} successfully!"
+          echo "✅ Deployed to ${{ steps.set-path.outputs.ENVIRONMENT }} successfully!"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
