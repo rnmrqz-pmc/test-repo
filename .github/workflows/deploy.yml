@@ -3,12 +3,13 @@ name: Deploy to Server
 on:
   push:
     branches:
-      - main        # Production
-      - develop     # Staging
+      - main     # Production environment
+      - test     # Test environment
+      - dev      # Staging environment
 
 jobs:
   deploy:
-    runs-on: self-hosted  # Use your self-hosted runner
+    runs-on: self-hosted
     
     steps:
       - name: Checkout code
@@ -17,7 +18,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'  # Updated to Node 20
+          node-version: '20'
           cache: 'npm'
 
       - name: Install dependencies
@@ -27,17 +28,31 @@ jobs:
         id: set-config
         run: |
           if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            # Production environment
+            echo "SSH_HOST=${{ secrets.PROD_SSH_HOST }}" >> $GITHUB_OUTPUT
+            echo "SSH_USER=${{ secrets.PROD_SSH_USER }}" >> $GITHUB_OUTPUT
+            echo "SSH_KEY=${{ secrets.PROD_SSH_PRIVATE_KEY }}" >> $GITHUB_OUTPUT
+            echo "DEPLOY_PATH=/var/www/html/app" >> $GITHUB_OUTPUT
+            echo "ENVIRONMENT=production" >> $GITHUB_OUTPUT
+            echo "ENV_FILE<<EOF" >> $GITHUB_OUTPUT
+            echo "${{ secrets.PROD_ENV_FILE }}" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          elif [ "${{ github.ref }}" == "refs/heads/test" ]; then
+            # Test environment
             echo "SSH_HOST=${{ secrets.TEST_SSH_HOST }}" >> $GITHUB_OUTPUT
             echo "SSH_USER=${{ secrets.TEST_SSH_USER }}" >> $GITHUB_OUTPUT
-            echo "DEPLOY_PATH=${{ secrets.TEST_PATH }}" >> $GITHUB_OUTPUT
-            echo "ENVIRONMENT=production" >> $GITHUB_OUTPUT
+            echo "SSH_KEY=${{ secrets.TEST_SSH_PRIVATE_KEY }}" >> $GITHUB_OUTPUT
+            echo "DEPLOY_PATH=/var/www/html/app" >> $GITHUB_OUTPUT
+            echo "ENVIRONMENT=test" >> $GITHUB_OUTPUT
             echo "ENV_FILE<<EOF" >> $GITHUB_OUTPUT
             echo "${{ secrets.TEST_ENV_FILE }}" >> $GITHUB_OUTPUT
             echo "EOF" >> $GITHUB_OUTPUT
-          else
+          elif [ "${{ github.ref }}" == "refs/heads/dev" ]; then
+            # Staging environment
             echo "SSH_HOST=${{ secrets.STAGING_SSH_HOST }}" >> $GITHUB_OUTPUT
             echo "SSH_USER=${{ secrets.STAGING_SSH_USER }}" >> $GITHUB_OUTPUT
-            echo "DEPLOY_PATH=${{ secrets.STAGING_PATH }}" >> $GITHUB_OUTPUT
+            echo "SSH_KEY=${{ secrets.STAGING_SSH_PRIVATE_KEY }}" >> $GITHUB_OUTPUT
+            echo "DEPLOY_PATH=/var/www/html/staging" >> $GITHUB_OUTPUT
             echo "ENVIRONMENT=staging" >> $GITHUB_OUTPUT
             echo "ENV_FILE<<EOF" >> $GITHUB_OUTPUT
             echo "${{ secrets.STAGING_ENV_FILE }}" >> $GITHUB_OUTPUT
@@ -63,33 +78,22 @@ jobs:
             exit 1
           fi
 
-      - name: Set deployment path
-        id: set-path
-        run: |
-          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
-            echo "DEPLOY_PATH=${{ secrets.TEST_PATH }}" >> $GITHUB_OUTPUT
-            echo "ENVIRONMENT=production" >> $GITHUB_OUTPUT
-          else
-            echo "DEPLOY_PATH=${{ secrets.STAGING_PATH }}" >> $GITHUB_OUTPUT
-            echo "ENVIRONMENT=staging" >> $GITHUB_OUTPUT
-          fi
-
       - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
-          if [ "${{ steps.set-config.outputs.ENVIRONMENT }}" == "production" ]; then
-            echo "${{ secrets.TEST_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
-          else
-            echo "${{ secrets.STAGING_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
-          fi
+          echo "${{ steps.set-config.outputs.SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H ${{ steps.set-config.outputs.SSH_HOST }} >> ~/.ssh/known_hosts
 
       - name: Deploy to Server
         run: |
-          # Deploy files with rsync (preserves permissions)
-          rsync -avz --delete --chmod=D755,F644 -e "ssh -i ~/.ssh/deploy_key" \
+          rsync -avz --delete --chmod=D755,F644 -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
             dist/ ${{ steps.set-config.outputs.SSH_USER }}@${{ steps.set-config.outputs.SSH_HOST }}:${{ steps.set-config.outputs.DEPLOY_PATH }}/
+
+      - name: Cleanup SSH key
+        if: always()
+        run: |
+          rm -f ~/.ssh/deploy_key
 
       - name: Deployment notification
         run: |
