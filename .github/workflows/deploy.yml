@@ -23,23 +23,33 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build for Staging
-        if: github.ref == 'refs/heads/develop'
-        run: npm run build
-        env:
-          NODE_ENV: staging
-          VITE_API_URL: https://staging-api.yourdomain.com
+      - name: Set deployment configuration
+        id: set-config
+        run: |
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "SSH_HOST=${{ secrets.PRODUCTION_SSH_HOST }}" >> $GITHUB_OUTPUT
+            echo "SSH_USER=${{ secrets.PRODUCTION_SSH_USER }}" >> $GITHUB_OUTPUT
+            echo "DEPLOY_PATH=${{ secrets.PRODUCTION_PATH }}" >> $GITHUB_OUTPUT
+            echo "ENVIRONMENT=production" >> $GITHUB_OUTPUT
+            echo "ENV_FILE<<EOF" >> $GITHUB_OUTPUT
+            echo "${{ secrets.PRODUCTION_ENV_FILE }}" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "SSH_HOST=${{ secrets.STAGING_SSH_HOST }}" >> $GITHUB_OUTPUT
+            echo "SSH_USER=${{ secrets.STAGING_SSH_USER }}" >> $GITHUB_OUTPUT
+            echo "DEPLOY_PATH=${{ secrets.STAGING_PATH }}" >> $GITHUB_OUTPUT
+            echo "ENVIRONMENT=staging" >> $GITHUB_OUTPUT
+            echo "ENV_FILE<<EOF" >> $GITHUB_OUTPUT
+            echo "${{ secrets.STAGING_ENV_FILE }}" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          fi
 
-      - name: Build for Production
-        if: github.ref == 'refs/heads/main'
-        run: npm run build
-        env:
-          NODE_ENV: production
-          VITE_BASE_API: /tms-api
-          VITE_SECRET_KEY: 3ad78f77d8587bd7db20d1a59810281575f7c5962bee331f1e823c3653c6869a
-          VITE_TARGET_PATH: /var/www/html/app
-          VITE_BASE_PATH: /app/
+      - name: Create environment file
+        run: |
+          echo "${{ steps.set-config.outputs.ENV_FILE }}" > .env
 
+      - name: Build application
+        run: npm run build
 
       - name: Verify build output
         run: |
@@ -64,13 +74,27 @@ jobs:
             echo "ENVIRONMENT=staging" >> $GITHUB_OUTPUT
           fi
 
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          if [ "${{ steps.set-config.outputs.ENVIRONMENT }}" == "production" ]; then
+            echo "${{ secrets.PRODUCTION_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          else
+            echo "${{ secrets.STAGING_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          fi
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ steps.set-config.outputs.SSH_HOST }} >> ~/.ssh/known_hosts
+
       - name: Deploy to Server
         run: |
           # Deploy files with rsync (preserves permissions)
-          rsync -avz --delete --chmod=D755,F644 dist/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ steps.set-path.outputs.DEPLOY_PATH }}/
+          rsync -avz --delete --chmod=D755,F644 -e "ssh -i ~/.ssh/deploy_key" \
+            dist/ ${{ steps.set-config.outputs.SSH_USER }}@${{ steps.set-config.outputs.SSH_HOST }}:${{ steps.set-config.outputs.DEPLOY_PATH }}/
 
       - name: Deployment notification
         run: |
-          echo "✅ Deployed to ${{ steps.set-path.outputs.ENVIRONMENT }} successfully!"
+          echo "✅ Deployed to ${{ steps.set-config.outputs.ENVIRONMENT }} successfully!"
+          echo "Server: ${{ steps.set-config.outputs.SSH_HOST }}"
+          echo "Path: ${{ steps.set-config.outputs.DEPLOY_PATH }}"
           echo "Branch: ${{ github.ref_name }}"
           echo "Commit: ${{ github.sha }}"
