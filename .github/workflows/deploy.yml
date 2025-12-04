@@ -3,13 +3,13 @@ name: Deploy to Server
 on:
   push:
     branches:
-      - main     # Production environment
-      - test     # Test environment
-      - dev      # Staging environment
+      - main     # Production
+      - test     # Test
+      - dev      # Staging
 
 jobs:
   deploy:
-    runs-on: self-hosted
+    runs-on: self-hosted  # Runner must be connected to VPN
     
     steps:
       - name: Checkout code
@@ -24,81 +24,90 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Set deployment configuration
+      - name: Set build configuration
         id: set-config
         run: |
           if [ "${{ github.ref }}" == "refs/heads/main" ]; then
             # Production environment
+            echo "NODE_ENV=production" >> $GITHUB_OUTPUT
+            echo "VITE_API_URL=${{ secrets.PROD_API_URL }}" >> $GITHUB_OUTPUT
             echo "SSH_HOST=${{ secrets.PROD_SSH_HOST }}" >> $GITHUB_OUTPUT
             echo "SSH_USER=${{ secrets.PROD_SSH_USER }}" >> $GITHUB_OUTPUT
-            echo "SSH_KEY=${{ secrets.PROD_SSH_PRIVATE_KEY }}" >> $GITHUB_OUTPUT
             echo "DEPLOY_PATH=/var/www/html/app" >> $GITHUB_OUTPUT
             echo "ENVIRONMENT=production" >> $GITHUB_OUTPUT
-            echo "ENV_FILE<<EOF" >> $GITHUB_OUTPUT
-            echo "${{ secrets.PROD_ENV_FILE }}" >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
           elif [ "${{ github.ref }}" == "refs/heads/test" ]; then
             # Test environment
+            echo "NODE_ENV=test" >> $GITHUB_OUTPUT
+            echo "VITE_API_URL=${{ secrets.TEST_API_URL }}" >> $GITHUB_OUTPUT
             echo "SSH_HOST=${{ secrets.TEST_SSH_HOST }}" >> $GITHUB_OUTPUT
             echo "SSH_USER=${{ secrets.TEST_SSH_USER }}" >> $GITHUB_OUTPUT
-            echo "SSH_KEY=${{ secrets.TEST_SSH_PRIVATE_KEY }}" >> $GITHUB_OUTPUT
             echo "DEPLOY_PATH=/var/www/html/app" >> $GITHUB_OUTPUT
             echo "ENVIRONMENT=test" >> $GITHUB_OUTPUT
-            echo "ENV_FILE<<EOF" >> $GITHUB_OUTPUT
-            echo "${{ secrets.TEST_ENV_FILE }}" >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
-          elif [ "${{ github.ref }}" == "refs/heads/dev" ]; then
-            # Staging environment
+          else
+            # Staging environment (dev branch)
+            echo "NODE_ENV=staging" >> $GITHUB_OUTPUT
+            echo "VITE_API_URL=${{ secrets.STAGING_API_URL }}" >> $GITHUB_OUTPUT
             echo "SSH_HOST=${{ secrets.STAGING_SSH_HOST }}" >> $GITHUB_OUTPUT
             echo "SSH_USER=${{ secrets.STAGING_SSH_USER }}" >> $GITHUB_OUTPUT
-            echo "SSH_KEY=${{ secrets.STAGING_SSH_PRIVATE_KEY }}" >> $GITHUB_OUTPUT
             echo "DEPLOY_PATH=/var/www/html/staging" >> $GITHUB_OUTPUT
             echo "ENVIRONMENT=staging" >> $GITHUB_OUTPUT
-            echo "ENV_FILE<<EOF" >> $GITHUB_OUTPUT
-            echo "${{ secrets.STAGING_ENV_FILE }}" >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
           fi
-
-      - name: Create environment file
-        run: |
-          echo "${{ steps.set-config.outputs.ENV_FILE }}" > .env
 
       - name: Build application
         run: npm run build
+        env:
+          NODE_ENV: ${{ steps.set-config.outputs.NODE_ENV }}
+          VITE_API_URL: ${{ steps.set-config.outputs.VITE_API_URL }}
 
       - name: Verify build output
         run: |
           echo "Checking if dist folder exists..."
           ls -la
           if [ -d "dist" ]; then
-            echo "dist folder found:"
+            echo "✅ dist folder found:"
             ls -la dist/
           else
-            echo "Error: dist folder not found!"
+            echo "❌ Error: dist folder not found!"
             exit 1
           fi
 
-      - name: Setup SSH key
+      - name: Setup SSH for passwordless access
         run: |
           mkdir -p ~/.ssh
-          echo "${{ steps.set-config.outputs.SSH_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H ${{ steps.set-config.outputs.SSH_HOST }} >> ~/.ssh/known_hosts
+          chmod 700 ~/.ssh
+          # Add server to known hosts if not already present
+          ssh-keyscan -H ${{ steps.set-config.outputs.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
 
       - name: Deploy to Server
         run: |
-          rsync -avz --delete --chmod=D755,F644 -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
-            dist/ ${{ steps.set-config.outputs.SSH_USER }}@${{ steps.set-config.outputs.SSH_HOST }}:${{ steps.set-config.outputs.DEPLOY_PATH }}/
+          echo "🚀 Deploying to ${{ steps.set-config.outputs.ENVIRONMENT }}..."
+          # Sync files to server (delete removes old files)
+          rsync -avz --delete --progress \
+            dist/ \
+            ${{ steps.set-config.outputs.SSH_USER }}@${{ steps.set-config.outputs.SSH_HOST }}:${{ steps.set-config.outputs.DEPLOY_PATH }}/
 
-      - name: Cleanup SSH key
-        if: always()
+      - name: Set correct permissions
         run: |
-          rm -f ~/.ssh/deploy_key
+          echo "🔒 Setting permissions..."
+          ssh ${{ steps.set-config.outputs.SSH_USER }}@${{ steps.set-config.outputs.SSH_HOST }} \
+            "sudo chown -R www-data:www-data ${{ steps.set-config.outputs.DEPLOY_PATH }} && \
+             sudo chmod -R 755 ${{ steps.set-config.outputs.DEPLOY_PATH }}"
+
+      - name: Verify deployment
+        run: |
+          echo "🔍 Verifying deployment..."
+          ssh ${{ steps.set-config.outputs.SSH_USER }}@${{ steps.set-config.outputs.SSH_HOST }} \
+            "ls -la ${{ steps.set-config.outputs.DEPLOY_PATH }}"
 
       - name: Deployment notification
         run: |
-          echo "✅ Deployed to ${{ steps.set-config.outputs.ENVIRONMENT }} successfully!"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ Deployment Successful!"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Environment: ${{ steps.set-config.outputs.ENVIRONMENT }}"
           echo "Server: ${{ steps.set-config.outputs.SSH_HOST }}"
           echo "Path: ${{ steps.set-config.outputs.DEPLOY_PATH }}"
           echo "Branch: ${{ github.ref_name }}"
           echo "Commit: ${{ github.sha }}"
+          echo "Triggered by: ${{ github.actor }}"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
